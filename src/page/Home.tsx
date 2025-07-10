@@ -137,10 +137,9 @@ const Home = () => {
         <Box textAlign={"center"} color={"white"}>
           <Heading size="4xl">Web Peformance Analyzer</Heading>
 
-          {/* <Text textStyle="md">
+          <Text textStyle="md">
             Analyze any websites performace metrics in real-time
-          </Text> */}
-          <Text textStyle="md">Analyze</Text>
+          </Text>
         </Box>
         <Card.Root
           w={{ base: "95%", tablet: "80%" }}
