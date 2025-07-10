@@ -7,19 +7,32 @@ import {
   Flex,
   Heading,
   Input,
+  Spinner,
   Text,
   useBreakpointValue,
 } from "@chakra-ui/react";
 import axios from "axios";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { toaster } from "@/components/ui/toaster";
+import { useState } from "react";
+import { MetricProgress } from "@/components/MetricProgress";
+import { toast } from "react-toastify";
 
 interface FormValues {
   url: string;
 }
 
+interface Results {
+  loadTime: number;
+  pageSize: number;
+  numRequests: number;
+}
+
 const Home = () => {
+  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
+  const [isLoading, setIsLoading] = useState(false);
+  const [results, setResults] = useState<Results | null>(null);
+
   // Inside your component
   const placeholder = useBreakpointValue({
     base: "Enter website URL",
@@ -41,52 +54,70 @@ const Home = () => {
 
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     try {
-      const response = await axios.get("/api/analyze", {
-        params: { url: data.url },
-      });
+      setIsLoading(true);
+      setResults(null); // Clear previous results
 
-      console.log("Submitting URL to analyze:", data.url);
+      // const response = await axios.get("/api/analyze", {
+      //   params: { url: data.url },
+      // });
 
-      console.log("Analysis Result:", response.data);
+      const response = await axios.get(
+        "https://www.googleapis.com/pagespeedonline/v5/runPagespeed",
+        {
+          params: {
+            url: data.url,
+            key: apiKey,
+          },
+        }
+      );
+      // console.log("Submitting URL to analyze:", data.url);
+      // console.log("Analysis Result:", response.data);
 
-      // localStorage.setItem("authToken", token);
-      // localStorage.setItem("accessToken", accessToken);
-      // localStorage.setItem("refreshToken", refreshToken);
+      // Extract metrics from the API response
+      const metrics =
+        response.data.lighthouseResult.audits["metrics"].details.items[0];
+      const loadTime = metrics.observedLoad / 1000; // Convert ms to seconds
+      const pageSize =
+        response.data.lighthouseResult.audits["total-byte-weight"]
+          .numericValue / 1024; // Convert bytes to KB
+      const numRequests =
+        response.data.lighthouseResult.audits["network-requests"].details.items
+          .length;
 
-      toaster.create({
-        title: `Successfully Submitted Url`,
-        type: "success",
-      });
+      // const audits = response.data.lighthouseResult.audits;
+
+      // Safely check each part to avoid runtime errors if missing:
+      // const metrics = audits?.["metrics"]?.details?.items?.[0];
+      // const loadTime = metrics?.observedLoad ? metrics.observedLoad / 1000 : 0;
+
+      // const totalByteWeight = audits?.["total-byte-weight"]?.numericValue || 0;
+      // const pageSize = totalByteWeight / 1024;
+
+      // const numRequests =
+      //   audits?.["network-requests"]?.details?.items?.length || 0;
+
+      // setResults({ loadTime, pageSize, numRequests });
+
+      setResults({ loadTime, pageSize, numRequests });
       reset();
     } catch (error: unknown) {
       // console.log("Caught error:", error);
-
       if (axios.isAxiosError(error)) {
         const message =
+          error.response?.data?.error?.message ||
           error.response?.data?.message ||
-          error.response?.data ||
           error.message ||
           "An unknown error occurred";
-        toaster.create({
-          title: `${message}`,
-          type: "error",
-        });
+        toast.error(message);
       } else if (error instanceof Error) {
-        toaster.create({
-          title: `${error.message}`,
-          type: "error",
-        });
+        toast.error(error.message);
       } else if (typeof error === "string") {
-        toaster.create({
-          title: `${error}`,
-          type: "error",
-        });
+        toast.error(error);
       } else {
-        toaster.create({
-          title: `An unknown error occurred.`,
-          type: "error",
-        });
+        toast.error("An unknown error occurred.");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -95,7 +126,6 @@ const Home = () => {
       <Flex
         w={"100vw"}
         h={"100vh"}
-        // bg={"yellow"}
         css={{
           bg: "radial-gradient(circle,rgba(209, 133, 230, 1) 15%, rgba(148, 187, 233, 1) 100%)",
         }}
@@ -121,16 +151,11 @@ const Home = () => {
               <Flex
                 gap="2"
                 w={"80%"}
-                // bg={"blue.200"}
-                // wrap={"wrap"}
                 direction={{ base: "column", tablet: "row" }}
-                // bg={"blue"}
               >
                 <Field.Root invalid={!!errors.url}>
                   <Input
                     p={"10px"}
-                    // w={{ base: "100%", tabletSm: "50%" }}
-                    // minW={"312px"}
                     placeholder={placeholder}
                     {...register("url")}
                   />
@@ -139,7 +164,6 @@ const Home = () => {
                   </Field.ErrorText>
                 </Field.Root>
                 <Button
-                  // w={{ base: "100%", tabletSm: "40%" }}
                   minW={{ base: "100px", tablet: "200px" }}
                   colorPalette={"purple"}
                   onClick={handleClick}
@@ -155,6 +179,34 @@ const Home = () => {
               </Flex>
             </Card.Body>
           </form>
+          {isLoading && (
+            <Flex justify="center" mt={4}>
+              <Spinner size="lg" color="purple.500" />
+            </Flex>
+          )}
+          {results && (
+            <Box mt={6} textAlign="left">
+              <Text fontSize="lg" fontWeight="bold" textAlign="center" mb={4}>
+                Performance Results:
+              </Text>
+
+              <MetricProgress
+                label="Load Time (s)"
+                value={Number(results.loadTime.toFixed(2))}
+                max={10}
+              />
+              <MetricProgress
+                label="Page Size (MB)"
+                value={Number((results.pageSize / 1024).toFixed(2))}
+                max={20}
+              />
+              <MetricProgress
+                label="Number of Requests"
+                value={results.numRequests}
+                max={200}
+              />
+            </Box>
+          )}
         </Card.Root>
       </Flex>
     </>
