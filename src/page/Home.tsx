@@ -207,9 +207,12 @@ const Home = () => {
               />
             </Box>
           )}
-          <Text fontSize="sm" mt={1} color="gray.600">
-            🟩: Good (≤ 40%) | 🟧: Moderate (≤ 70%) | 🟥: Poor (&gt; 70%) &nbsp;
-          </Text>
+          {results && (
+            <Text fontSize="sm" mt={1} color="gray.600">
+              🟩: Good (≤ 40%) | 🟧: Moderate (≤ 70%) | 🟥: Poor (&gt; 70%)
+              &nbsp;
+            </Text>
+          )}
         </Card.Root>
       </Flex>
     </>
